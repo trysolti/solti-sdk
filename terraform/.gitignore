@@ -1,0 +1,6 @@
+# Local state — never commit.
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+.terraform.lock.hcl
