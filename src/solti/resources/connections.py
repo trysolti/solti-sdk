@@ -4,12 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, TypeAdapter
+
 from .._client import SoltiClient
-from . import Resource, _wrap_list
+from ..types import ConnectionCredentials, ConnectionType, CreateConnectionRequest
 
 
-class Connection(Resource):
+class Connection(BaseModel):
     """A connection API response (credentials are redacted by the API)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    type: ConnectionType
+    created_at: str | None = None
 
 
 class ConnectionsResource:
@@ -22,26 +30,34 @@ class ConnectionsResource:
         self,
         *,
         name: str,
-        type: str,
-        credentials: dict[str, Any] | None = None,
+        type: ConnectionType,
+        credentials: ConnectionCredentials | dict[str, Any] | None = None,
         **fields: Any,
     ) -> Connection:
-        """Creates a connection. `credentials` entries are merged into the
-        request body as top-level fields, matching the CLI's flat wire format
-        (e.g. `access_key_id`, `secret_access_key`, `access_token`).
-        """
+        """Creates a connection. `credentials` validate into the provider
+        credential models and are merged into the request body as top-level
+        fields, matching the CLI's flat wire format (e.g. `access_key_id`,
+        `secret_access_key`, `access_token`)."""
+        CreateConnectionRequest(name=name, type=type, credentials=credentials)  # validation
         body: dict[str, Any] = {"name": name, "type": type}
         if credentials is not None:
-            body.update(credentials)
+            if isinstance(credentials, BaseModel):
+                body.update(credentials.model_dump(exclude_none=True))
+            else:
+                adapter = TypeAdapter(ConnectionCredentials)
+                body.update(adapter.validate_python(credentials).model_dump(exclude_none=True))
         body.update(fields)
-        return Connection(self._client, self._client.request("connections", "POST", json_body=body))
+        return Connection.model_validate(
+            self._client.request("connections", "POST", json_body=body)
+        )
 
     def get(self, name: str) -> Connection:
-        return Connection(self._client, self._client.request(f"connections/{name}", "GET"))
+        return Connection.model_validate(self._client.request(f"connections/{name}", "GET"))
 
     def list(self) -> list[Connection]:
         payload = self._client.request("connections", "GET")
-        return _wrap_list(self._client, payload, "connections", Connection)
+        items = payload.get("connections") if isinstance(payload, dict) else payload
+        return [Connection.model_validate(item) for item in (items or [])]
 
     def delete(self, name: str) -> None:
         self._client.request(f"connections/{name}", "DELETE")

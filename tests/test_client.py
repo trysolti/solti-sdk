@@ -218,17 +218,17 @@ class TestConnectionsCronjobsKeys:
         mock_api.respond_with(
             lambda req: json_response(
                 payload=(
-                    {"keys": [{"name": "ci", "role": "editor"}]}
+                    {"keys": [{"name": "ci", "role": "developer"}]}
                     if req.method == "GET"
                     else {"name": "ci", "api_key": "shown-once"}
                 )
             )
         )
         assert [k.name for k in client.keys.list()] == ["ci"]
-        created = client.keys.create(name="ci", role="editor", expires_at="2026-12-31")
+        created = client.keys.create(name="ci", role="developer", expires_at="2026-12-31")
         assert created.api_key == "shown-once"
         assert mock_api.calls(method="POST", path="/1/keys")[0].body == {
-            "name": "ci", "role": "editor", "expires_at": "2026-12-31",
+            "name": "ci", "role": "developer", "expires_at": "2026-12-31",
         }
         client.keys.delete("ci")
         assert mock_api.calls(method="DELETE", path="/1/keys/ci")

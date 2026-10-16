@@ -2,15 +2,39 @@
 
 Python SDK for the [Solti Platform](https://solti.run) — schedule and run asynchronous workloads without managing infrastructure.
 
-**Package:** `solti-sdk` (PyPI) · **Import:** `solti` · **License:** UNLICENSED (private, mirrors `@solti/cli`)
+**Package:** `solti-sdk` · **Import:** `solti` · **License:** UNLICENSED (private, mirrors `@solti/cli`)
 
 ## Installation
 
+The package is served from Solti's public Google Artifact Registry (PyPI-format)
+repository. It will migrate to PyPI later; the AR URL is the canonical
+installation source for now.
+
+Using **uv**:
+
 ```bash
-uv add solti-sdk
-# or
-pip install solti-sdk
+uv pip install solti-sdk \
+  --extra-index-url https://us-central1-python.pkg.dev/solti-487108/solti-pypi/simple/
 ```
+
+Or keep the index in an environment variable for your project:
+
+```bash
+export SOLTIPYPI_EXTRA_INDEX_URL=https://us-central1-python.pkg.dev/solti-487108/solti-pypi/simple/
+uv pip install solti-sdk --extra-index-url "$SOLTIPYPI_EXTRA_INDEX_URL"
+```
+
+Using **pip**:
+
+```bash
+pip install solti-sdk \
+  --extra-index-url https://us-central1-python.pkg.dev/solti-487108/solti-pypi/simple/
+```
+
+The repository is world-readable (anonymous download), so **no credentials are
+required to install**. Always use `--extra-index-url` (not `--index-url`) so the
+default PyPI index remains available for the SDK's dependencies (httpx,
+pydantic).
 
 ## Quickstart
 

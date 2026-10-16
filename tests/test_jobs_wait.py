@@ -11,7 +11,7 @@ from solti import SoltiClient, exceptions
 
 def job_response(**overrides: object) -> dict:
     base = {"id": "j1", "name": "train-run-x7k9", "status": "running",
-            "vm_status": "assigned", "exit_code": None, "error_summary": None}
+            "vm_status": "provisioned", "exit_code": None, "error_summary": None}
     return {**base, **overrides}
 
 
