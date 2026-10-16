@@ -121,7 +121,12 @@ class SoltiClient:
         self.cronjobs = CronjobsResource(self)
         self.keys = KeysResource(self)
 
-        self._http = httpx.Client(base_url=self.api_url, timeout=timeout)
+        # follow_redirects=True: the preview gateway 307-redirects `/1/jobs`
+        # → `/1/jobs/` (trailing slash); without following, httpx returns the
+        # empty 307 response, which `request()` would misread as a `None`
+        # payload (Node's fetch, used by the CLI and the TS SDK, follows
+        # redirects by default — this keeps the three transports equivalent).
+        self._http = httpx.Client(base_url=self.api_url, timeout=timeout, follow_redirects=True)
 
     def close(self) -> None:
         """Releases the underlying HTTP connection pool."""
