@@ -7,8 +7,7 @@ Python SDK for the [Solti Platform](https://solti.run) — schedule and run asyn
 ## Installation
 
 The package is served from Solti's public Google Artifact Registry (PyPI-format)
-repository. It will migrate to PyPI later; the AR URL is the canonical
-installation source for now.
+repository; the AR URL below is the canonical installation source.
 
 Using **uv**:
 
@@ -107,11 +106,11 @@ client.keys.delete("ci")
 
 ## Error handling
 
-HTTP errors map to typed exceptions (`solti.exceptions`), per `constitution/tools/sdk.md` §5:
+HTTP errors map to typed exceptions (`solti.exceptions`):
 
 | Exception | HTTP | Notes |
 | :--- | :--- | :--- |
-| `AuthenticationError` | 401 | Invalid or expired API key (Zitadel PAT). |
+| `AuthenticationError` | 401 | Invalid or expired API key. |
 | `PermissionDeniedError` | 403 | Key role lacks access (e.g. `viewer` on a write). |
 | `NotFoundError` | 404 | Unknown job / connection / cronjob / key. |
 | `ConflictError` | 409 | Duplicate resource name. |
@@ -122,15 +121,14 @@ HTTP errors map to typed exceptions (`solti.exceptions`), per `constitution/tool
 
 All exceptions derive from `SoltiError`, which exposes `status`, `payload` and `headers`.
 
-**Rate-limit retry policy** (mirrors `solti-cli/src/api/client.ts`): idempotent reads (`GET`)
+**Rate-limit retry policy**: idempotent reads (`GET`)
 auto-retry up to 2 times honoring the `Retry-After` header (default 5s, capped at 30s).
 Mutations surface `RateLimitError` to the caller immediately.
 
 ## Host strategy
 
-Per-project wildcard hosts (`<project-id>.api.solti.run`) are **not deployed**. The SDK targets
-the global host (`https://api.solti.run/1`, preview: `https://preview.api.solti.run/1`) and
-selects the project via the `X-Solti-Project-Id` header — the same mechanism as the Solti CLI.
+The SDK targets the global API host (`https://api.solti.run/1`) and selects
+the project via the `X-Solti-Project-Id` header.
 
 ## Development
 
