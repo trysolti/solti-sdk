@@ -25,6 +25,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/solti"]
 
+[tool.hatch.build.targets.sdist]
+# terraform/ (Change 069 WS5 teardown) and its .terraform cache must never
+# ship in the sdist — the 0.1.2 sdist accidentally included it (32.9 MiB).
+exclude = ["terraform", ".terraform"]
+
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
