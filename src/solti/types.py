@@ -75,7 +75,8 @@ class JobResources(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    cpu: int | None = None
+    #: Fractional cpu is accepted api-side (DB rows carry e.g. `0.5`).
+    cpu: float | None = None
     memory: str | None = None
     #: VRAM shorthand (`"24Gi"`) or nested request (`{"vram": "24Gi"}`).
     gpu: str | GpuRequest | None = None

@@ -84,6 +84,22 @@ class TestCreateJobRequest:
         assert dump["resources"]["gpu"] == {"vram": "24Gi"}
         assert "name" not in dump
 
+    def test_cpu_accepts_fractional_api_values(self) -> None:
+        # API stores resources as JSON map[string]any — fractional cpu (0.5) is
+        # valid on both the request and response side (change 073 item 21).
+        fractional = JobResources(cpu=0.5)
+        assert fractional.cpu == 0.5
+        assert fractional.model_dump(exclude_none=True) == {"cpu": 0.5}
+        whole = JobResources(cpu=1)
+        assert whole.cpu == 1
+        assert whole.model_dump(exclude_none=True) == {"cpu": 1}
+        # API-shaped response payloads parse through JobDefinition (extra=allow).
+        definition = JobDefinition.model_validate(
+            {"image": "alpine:latest", "resources": {"cpu": 0.5, "memory": "4Gi"}}
+        )
+        assert definition.resources is not None
+        assert definition.resources.cpu == 0.5
+
     def test_gpu_shorthand_string_passes_through(self) -> None:
         request = CreateJobRequest(
             image="alpine:latest", resources={"gpu": "24Gi"}
