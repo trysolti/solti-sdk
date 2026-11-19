@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
@@ -33,6 +34,9 @@ class Job(BaseModel):
     id: str | None = Field(None, validation_alias=AliasChoices("id", "job_id"))
     name: str | None = None
     status: WorkloadStatus | None = None
+    #: Scheduled start (RFC 3339 string; `None` = immediate). The job stays
+    #: `queued` until this instant passes (change 090); cancel works while waiting.
+    run_after: str | None = None
     image: str | None = None
     vm_status: VmStatus | None = None
     estimated_cost: float | None = None
@@ -129,13 +133,27 @@ class JobsResource:
         cloud: Any | None = None,
         region: str | list[str] | None = None,
         max_retries: int | None = None,
+        run_after: datetime | str | None = None,
         labels: dict[str, str] | None = None,
         tags: list[str] | None = None,
     ) -> Job:
         """Submits a workload. Keyword arguments validate into
         `CreateJobRequest`; request payloads use camelCase wire keys
-        (`namePrefix`, `maxRetries`, `mountPath`); the `gpu` shorthand
+        (`namePrefix`, `maxRetries`, `runAfter`, `mountPath`); the `gpu` shorthand
         (`"24Gi"` for `{"vram": "24Gi"}`) is passed through to the API.
+
+        Args:
+            run_after: Optional scheduled start (change 090): the job is
+                submitted immediately but stays `queued` — not provisioned,
+                zero cost — until the instant passes, then runs normally;
+                cancelling works while it waits. Accepts a timezone-aware
+                `datetime` or an ISO 8601 / RFC 3339 string; aware datetimes
+                are serialized to RFC 3339 UTC, e.g.
+                `datetime(2026, 11, 25, 2, 0, tzinfo=timezone.utc)` →
+                `"2026-11-25T02:00:00Z"`. The API rejects naive (no-timezone)
+                datetimes with `422` — attach `tzinfo` or send an offset
+                string. Immutable after submission; cancel and resubmit to
+                change it.
         """
         request = CreateJobRequest(
             image=image,
@@ -149,6 +167,7 @@ class JobsResource:
             cloud=cloud,
             region=region,
             max_retries=max_retries,
+            run_after=run_after,
             labels=labels,
             tags=tags,
         )

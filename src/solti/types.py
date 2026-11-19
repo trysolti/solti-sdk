@@ -9,9 +9,10 @@ drop newly added API fields.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 # -- finite value sets (string unions) ----------------------------------------
 
@@ -104,8 +105,23 @@ class CreateJobRequest(BaseModel):
     region: str | list[str] | None = None
     #: Container retries inside the VM (wire `maxRetries`).
     max_retries: int | None = Field(None, alias="maxRetries")
+    #: Optional scheduled start (change 090): the job stays `queued` (no VM,
+    #: no cost) until the instant passes, then provisions normally; cancel
+    #: works while waiting. Accepts a timezone-aware `datetime` or an RFC 3339
+    #: string (wire `runAfter`, serialized to RFC 3339 UTC). Naive datetimes
+    #: pass through unzoned — the API rejects them `422` (A-1: no zone guessing).
+    run_after: datetime | str | None = Field(None, alias="runAfter")
     labels: dict[str, str] | None = None
     tags: list[str] | None = None
+
+    @field_serializer("run_after")
+    def _serialize_run_after(self, value: datetime | str | None) -> str | None:
+        """Serializes aware datetimes to RFC 3339 UTC (e.g. `2026-11-25T02:00:00Z`)."""
+        if value is None or isinstance(value, str):
+            return value
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        return value.isoformat()  # naive: unzoned; API rejects with `422` (no guessing)
 
 
 class JobDefinition(BaseModel):

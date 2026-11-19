@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from conftest import json_response
@@ -66,7 +68,8 @@ class TestWireConventions:
         mock_api.respond_with(
             lambda req: json_response(
                 payload={"job_id": "job-1", "name": "train-run-x7k9", "status": "queued",
-                         "vm_status": "nonassigned", "estimated_cost": 0.42},
+                         "vm_status": "nonassigned", "estimated_cost": 0.42,
+                         "run_after": "2026-11-25T02:00:00Z"},
             )
         )
         job = client.jobs.create(
@@ -110,6 +113,37 @@ class TestWireConventions:
         assert job.status == "queued"
         assert job.vm_status == "nonassigned"
         assert job.estimated_cost == 0.42
+        assert job.run_after == "2026-11-25T02:00:00Z"
+
+    def test_jobs_create_run_after_datetime_serializes_rfc3339_utc(
+        self, mock_api, client: SoltiClient
+    ) -> None:
+        mock_api.respond_with(lambda req: json_response(payload={"id": "j1", "name": "n"}))
+        client.jobs.create(
+            image="alpine:latest",
+            run_after=datetime(2026, 11, 25, 11, 0, tzinfo=timezone(timedelta(hours=9))),
+        )
+        body = mock_api.calls(method="POST", path="/1/jobs")[0].body
+        # +09:00 aware datetime is normalized to RFC 3339 UTC on the wire.
+        assert body["runAfter"] == "2026-11-25T02:00:00Z"
+
+    def test_jobs_create_run_after_utc_datetime_and_iso_string(
+        self, mock_api, client: SoltiClient
+    ) -> None:
+        mock_api.respond_with(lambda req: json_response(payload={"id": "j1", "name": "n"}))
+        client.jobs.create(
+            image="alpine:latest", run_after=datetime(2026, 11, 25, 2, 0, tzinfo=timezone.utc)
+        )
+        client.jobs.create(image="alpine:latest", run_after="2026-11-25T02:00:00+00:00")
+        calls = mock_api.calls(method="POST", path="/1/jobs")
+        assert calls[0].body["runAfter"] == "2026-11-25T02:00:00Z"
+        assert calls[1].body["runAfter"] == "2026-11-25T02:00:00+00:00"  # strings pass through
+
+    def test_jobs_create_run_after_absent_when_none(self, mock_api, client: SoltiClient) -> None:
+        mock_api.respond_with(lambda req: json_response(payload={"id": "j1", "name": "n"}))
+        client.jobs.create(image="alpine:latest", run_after=None)
+        body = mock_api.calls(method="POST", path="/1/jobs")[0].body
+        assert "runAfter" not in body
 
     def test_jobs_create_with_explicit_name(self, mock_api, client: SoltiClient) -> None:
         mock_api.respond_with(lambda req: json_response(payload={"id": "j1", "name": "n"}))

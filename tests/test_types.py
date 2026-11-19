@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from pydantic import ValidationError
 
@@ -123,6 +125,35 @@ class TestCreateJobRequest:
         with pytest.raises(ValidationError):
             CreateJobRequest(image="i", cloud=["aws", "hetzner"])
 
+    def test_run_after_datetime_serializes_to_rfc3339_utc(self) -> None:
+        utc = CreateJobRequest(
+            image="i", run_after=datetime(2026, 11, 25, 2, 0, tzinfo=timezone.utc)
+        )
+        dump = utc.model_dump(by_alias=True, exclude_none=True)
+        assert dump["runAfter"] == "2026-11-25T02:00:00Z"
+        offset = CreateJobRequest(
+            image="i",
+            run_after=datetime(2026, 11, 25, 11, 0, tzinfo=timezone(timedelta(hours=9))),
+        )
+        # Aware datetimes normalize to RFC 3339 UTC regardless of input offset.
+        assert offset.model_dump(by_alias=True, exclude_none=True)["runAfter"] == (
+            "2026-11-25T02:00:00Z"
+        )
+
+    def test_run_after_iso_string_passes_through_and_none_is_absent(self) -> None:
+        string = CreateJobRequest(image="i", run_after="2026-11-25T02:00:00Z")
+        dump = string.model_dump(by_alias=True, exclude_none=True)
+        assert dump["runAfter"] == "2026-11-25T02:00:00Z"
+        assert "runAfter" not in CreateJobRequest(image="i").model_dump(
+            by_alias=True, exclude_none=True
+        )
+
+    def test_run_after_naive_datetime_passes_through_unzoned(self) -> None:
+        # No client-side timezone guessing (change 090 A-1: the API 422s naive datetimes).
+        naive = CreateJobRequest(image="i", run_after=datetime(2026, 11, 25, 2, 0))
+        dump = naive.model_dump(by_alias=True, exclude_none=True)
+        assert dump["runAfter"] == "2026-11-25T02:00:00"
+
     def test_population_by_name_and_alias(self) -> None:
         by_alias = CreateJobRequest.model_validate(
             {"image": "i", "namePrefix": "p", "maxRetries": 2}
@@ -163,6 +194,14 @@ class TestJobResponse:
         assert job.actual_cost == 1.23
         assert job.exit_code == 0
         assert job.oom_killed is False
+
+    def test_run_after_surface_in_response(self) -> None:
+        scheduled = Job.model_validate(
+            {"id": "j1", "name": "n", "status": "queued", "run_after": "2026-11-25T02:00:00Z"}
+        )
+        assert scheduled.run_after == "2026-11-25T02:00:00Z"
+        immediate = Job.model_validate({"id": "j1", "name": "n", "status": "queued"})
+        assert immediate.run_after is None  # absent = starts immediately
 
     def test_unknown_api_fields_are_preserved(self) -> None:
         job = Job.model_validate({"id": "j1", "brand_new_field": {"a": 1}})
