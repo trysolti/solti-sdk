@@ -16,6 +16,7 @@ from .resources.connections import Connection
 from .resources.cronjobs import Cronjob
 from .resources.jobs import Job
 from .resources.keys import CreateKeyResponse, Key
+from .resources.workflows import Workflow, WorkflowNode
 from .types import (
     AwsCredentials,
     AzureCredentials,
@@ -26,6 +27,7 @@ from .types import (
     CreateCronjobRequest,
     CreateJobRequest,
     CreateKeyRequest,
+    CreateWorkflowRequest,
     GcpCredentials,
     GithubCredentials,
     GpuRequest,
@@ -38,6 +40,7 @@ from .types import (
     TerminalStatus,
     VmStatus,
     VolumeMount,
+    WorkflowStatus,
     WorkloadStatus,
 )
 
@@ -53,6 +56,8 @@ __all__ = [
     "Cronjob",
     "Key",
     "CreateKeyResponse",
+    "Workflow",
+    "WorkflowNode",
     # Request models
     "CreateJobRequest",
     "JobDefinition",
@@ -63,6 +68,7 @@ __all__ = [
     "CreateCronjobRequest",
     "PatchCronjobRequest",
     "CreateKeyRequest",
+    "CreateWorkflowRequest",
     # Credential models
     "ConnectionCredentials",
     "AwsCredentials",
@@ -74,6 +80,7 @@ __all__ = [
     "WorkloadStatus",
     "TerminalStatus",
     "VmStatus",
+    "WorkflowStatus",
     "CloudProvider",
     "ConnectionType",
     "KeyRole",

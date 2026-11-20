@@ -1,1 +1,1 @@
-"""Resource namespaces on `SoltiClient` (jobs, connections, cronjobs, keys)."""
+"""Resource namespaces on `SoltiClient` (jobs, connections, cronjobs, keys, workflows)."""

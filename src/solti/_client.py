@@ -115,11 +115,13 @@ class SoltiClient:
         from .resources.cronjobs import CronjobsResource
         from .resources.jobs import JobsResource
         from .resources.keys import KeysResource
+        from .resources.workflows import WorkflowsResource
 
         self.jobs = JobsResource(self)
         self.connections = ConnectionsResource(self)
         self.cronjobs = CronjobsResource(self)
         self.keys = KeysResource(self)
+        self.workflows = WorkflowsResource(self)
 
         # follow_redirects=True: the preview gateway 307-redirects `/1/jobs`
         # → `/1/jobs/` (trailing slash); without following, httpx returns the

@@ -12,6 +12,7 @@ from solti import (
     Connection,
     CreateJobRequest,
     CreateKeyResponse,
+    CreateWorkflowRequest,
     Cronjob,
     GcpCredentials,
     GithubCredentials,
@@ -23,6 +24,8 @@ from solti import (
     PatchCronjobRequest,
     R2Credentials,
     VolumeMount,
+    Workflow,
+    WorkflowNode,
 )
 from solti.types import (
     CloudProvider,
@@ -31,6 +34,7 @@ from solti.types import (
     MacroRegion,
     TerminalStatus,
     VmStatus,
+    WorkflowStatus,
     WorkloadStatus,
 )
 
@@ -53,6 +57,10 @@ class TestStringUnions:
         assert set(KeyRole.__args__) == {"admin", "developer", "viewer"}  # type: ignore[attr-defined]
         assert set(MacroRegion.__args__) == {  # type: ignore[attr-defined]
             "americas", "europe", "apac", "africa", "middle-east",
+        }
+        # WorkflowStatus — running until every node job is terminal
+        assert set(WorkflowStatus.__args__) == {  # type: ignore[attr-defined]
+            "running", "succeeded", "failed", "cancelled",
         }
 
     def test_literal_rejects_unknown_values(self) -> None:
@@ -206,6 +214,83 @@ class TestJobResponse:
     def test_unknown_api_fields_are_preserved(self) -> None:
         job = Job.model_validate({"id": "j1", "brand_new_field": {"a": 1}})
         assert job.brand_new_field == {"a": 1}  # type: ignore[attr-defined]
+
+
+class TestWorkflowModels:
+    def test_create_workflow_wire_dump(self) -> None:
+        templates = [
+            {"name": "a", "job": {"image": "alpine:latest", "command": ["echo", "hi"]}},
+            {"name": "b", "job": {"image": "alpine:latest"}, "dependencies": ["a"]},
+        ]
+        request = CreateWorkflowRequest(templates=templates, name_prefix="dag")
+        dump = request.model_dump(by_alias=True, exclude_none=True)
+        assert dump == {
+            "templates": templates,
+            "namePrefix": "dag",  # camelCase wire key
+        }
+        named = CreateWorkflowRequest(templates=templates, name="dag-1")
+        assert named.model_dump(by_alias=True, exclude_none=True) == {
+            "templates": templates,
+            "name": "dag-1",
+        }
+
+    def test_workflow_create_response_workflow_id_normalized_to_id(self) -> None:
+        workflow = Workflow.model_validate(
+            {
+                "workflow_id": "wf-1",
+                "name": "dag-x7k9",
+                "status": "running",
+                "nodes": {"dag-x7k9--a": {"job_id": "j1", "name": "dag-x7k9--a"}},
+            }
+        )
+        assert workflow.id == "wf-1"
+        assert isinstance(workflow.nodes, dict)
+        assert workflow.nodes["dag-x7k9--a"] == {"job_id": "j1", "name": "dag-x7k9--a"}
+
+    def test_workflow_detail_nodes_snake_case(self) -> None:
+        workflow = Workflow.model_validate(
+            {
+                "id": "wf-1",
+                "name": "dag",
+                "status": "failed",
+                "error_message": "node 'b' failed",
+                "node_count": 2,
+                "nodes": [
+                    {
+                        "job_id": "j1",
+                        "name": "dag--a",
+                        "status": "succeeded",
+                        "vm_status": "terminated",
+                        "estimated_cost": 0.5,
+                        "actual_cost": 0.7,
+                        "ondemand_cost": 1.25,
+                    },
+                    {
+                        "job_id": "j2",
+                        "name": "dag--b",
+                        "status": "failed",
+                        "error_message": "exit code 1",
+                    },
+                ],
+                "estimated_cost": 0.75,
+                "actual_cost": 0.7,
+                "ondemand_cost": 1.25,
+            }
+        )
+        assert isinstance(workflow.nodes, list)
+        assert workflow.nodes[0].vm_status == "terminated"
+        assert workflow.nodes[1].error_message == "exit code 1"
+        assert workflow.nodes[1].actual_cost is None
+        assert workflow.estimated_cost == 0.75
+        assert workflow.error_message == "node 'b' failed"
+
+    def test_workflow_node_status_literal_rejects_unknown_values(self) -> None:
+        with pytest.raises(ValidationError):
+            WorkflowNode.model_validate({"job_id": "j1", "name": "n", "status": "queued-ish"})
+
+    def test_workflow_unknown_api_fields_are_preserved(self) -> None:
+        workflow = Workflow.model_validate({"id": "wf-1", "brand_new_field": {"a": 1}})
+        assert workflow.brand_new_field == {"a": 1}  # type: ignore[attr-defined]
 
 
 class TestConnectionModels:

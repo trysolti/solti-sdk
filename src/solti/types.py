@@ -27,6 +27,10 @@ VmStatus = Literal[
     "nonassigned", "provisioning", "provisioned", "terminating", "terminated", "error"
 ]
 
+#: Workflow lifecycle (api `Workflow.status`): `running` until every node
+#: job is terminal; the scheduler finalizes succeeded/failed/cancelled.
+WorkflowStatus = Literal["running", "succeeded", "failed", "cancelled"]
+
 #: Cloud providers accepted by job routing and connections.
 CloudProvider = Literal["aws", "gcp", "azure"]
 
@@ -142,6 +146,22 @@ class JobDefinition(BaseModel):
     max_retries: int | None = Field(None, alias="maxRetries")
     labels: dict[str, str] | None = None
     tags: list[str] | None = None
+
+
+class CreateWorkflowRequest(BaseModel):
+    """`POST /1/workflows` payload — camelCase wire keys (api spec §3.0)."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    #: DAG node templates — one entry per node: a standard job definition
+    #: (`job`) plus its `name`, optional `dependencies` edges and optional
+    #: `withItems`/`withSequence` static fan-out. Passed through to the API
+    #: verbatim (the API owns full template validation and the ≤ 50 node cap).
+    templates: list[dict[str, Any]]
+    #: Optional unique workflow name (slug format); `409` on duplicate.
+    name: str | None = None
+    #: Optional prefix — API generates `<prefix>-<random suffix>` (wire `namePrefix`).
+    name_prefix: str | None = Field(None, alias="namePrefix")
 
 
 # -- connection request models ---------------------------------------------------
