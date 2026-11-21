@@ -357,6 +357,65 @@ class TestWorkflows:
         request = mock_api.calls(method="GET", path="/1/workflows")[0]
         assert not request.query
 
+    def test_workflows_list_for_cronjob_filters_and_pagination(
+        self, mock_api, client: SoltiClient
+    ) -> None:
+        # Change 092: cron-spawned run history — same envelope as list();
+        # entries carry `cronjob_name` (the spawning cronjob's name).
+        spawn = {
+            "id": "wf-1",
+            "name": "nightly-backup-20261121020000",
+            "status": "succeeded",
+            "cronjob_name": "nightly-backup",
+        }
+        mock_api.respond_with(
+            lambda req: json_response(
+                payload={"workflows": [spawn], "total": 12, "offset": 5, "limit": 10}
+            )
+        )
+        workflows = client.workflows.list_for_cronjob(
+            "nightly-backup", status="succeeded", limit=10, offset=5
+        )
+        request = mock_api.calls(method="GET", path="/1/cronjobs/nightly-backup/workflows")[0]
+        assert request.query["status"] == ["succeeded"]
+        assert request.query["limit"] == ["10"]
+        assert request.query["offset"] == ["5"]
+        assert [w.id for w in workflows] == ["wf-1"]
+        assert workflows[0].name == "nightly-backup-20261121020000"
+        assert workflows[0].cronjob_name == "nightly-backup"
+
+    def test_workflows_list_for_cronjob_url_encodes_id_or_name(
+        self, mock_api, client: SoltiClient
+    ) -> None:
+        # The cronjob UUID-or-name is quoted as a single path segment
+        # (encodeURIComponent parity with the TS SDK).
+        mock_api.respond_with(lambda req: json_response(payload={"workflows": []}))
+        assert client.workflows.list_for_cronjob("nightly etl") == []
+        assert mock_api.calls(method="GET", path="/1/cronjobs/nightly%20etl/workflows")
+
+    def test_workflows_list_for_cronjob_omits_unset_query_params_and_cronjob_name_is_optional(
+        self, mock_api, client: SoltiClient
+    ) -> None:
+        mock_api.respond_with(
+            lambda req: json_response(payload={"workflows": [{"id": "wf-1", "name": "n"}]})
+        )
+        workflows = client.workflows.list_for_cronjob("nightly-backup")
+        request = mock_api.calls(method="GET", path="/1/cronjobs/nightly-backup/workflows")[0]
+        assert not request.query
+        assert workflows[0].cronjob_name is None  # API/CLI submissions have no linkage
+
+    def test_workflows_get_surfaces_cronjob_name(self, mock_api, client: SoltiClient) -> None:
+        # Detail endpoint entries carry `cronjob_name` too (change 092).
+        mock_api.respond_with(
+            lambda req: json_response(
+                payload={"id": "wf-1", "name": "nightly-backup-20261121020000",
+                         "status": "succeeded", "cronjob_name": "nightly-backup"}
+            )
+        )
+        workflow = client.workflows.get("wf-1")
+        assert mock_api.calls(method="GET", path="/1/workflows/wf-1")
+        assert workflow.cronjob_name == "nightly-backup"
+
     def test_workflows_cancel(self, mock_api, client: SoltiClient) -> None:
         mock_api.respond_with(
             lambda req: json_response(

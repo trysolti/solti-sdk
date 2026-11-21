@@ -1,9 +1,11 @@
 """Workflows namespace: DAG submission, node inspection and cancellation
-(workflows API, api OpenAPI 0.3.0 — change 086; SDK surface per change 091 WS1)."""
+(workflows API, api OpenAPI 0.3.2 — change 086; SDK surface per change 091
+WS1 + change 092 cron run history)."""
 
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
@@ -54,6 +56,8 @@ class Workflow(BaseModel):
     project_id: str | None = None
     name: str | None = None
     status: WorkflowStatus | None = None
+    #: Spawning cronjob's name (change 092; `None` for API/CLI submissions).
+    cronjob_name: str | None = None
     #: Workflow-level error summary (`None` while running).
     error_message: str | None = None
     created_at: str | None = None
@@ -138,6 +142,30 @@ class WorkflowsResource:
         """
         payload = self._client.request(
             "workflows",
+            "GET",
+            params={"limit": limit, "offset": offset, "status": status},
+        )
+        items = payload.get("workflows") if isinstance(payload, dict) else payload
+        return [Workflow.model_validate(item) for item in (items or [])]
+
+    def list_for_cronjob(
+        self,
+        cronjob_id_or_name: str,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+        status: WorkflowStatus | None = None,
+    ) -> list[Workflow]:
+        """Lists the run history of a cronjob — the workflows it spawned,
+        newest first (`GET /1/cronjobs/{id_or_name}/workflows`, change 092).
+        Accepts the cronjob's UUID or unique name (URL-encoded as a path
+        segment); same list envelope and pagination as `list()` (api defaults:
+        limit 50, cap 200); `status` filters by workflow status
+        (`running`/`succeeded`/`failed`/`cancelled`). Entries carry
+        `cronjob_name` (the linkage key, by cronjob NAME, not id).
+        """
+        payload = self._client.request(
+            f"cronjobs/{quote(cronjob_id_or_name, safe='')}/workflows",
             "GET",
             params={"limit": limit, "offset": offset, "status": status},
         )
