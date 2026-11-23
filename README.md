@@ -129,3 +129,9 @@ uv run pytest
 uv run ruff check .
 uv build
 ```
+
+## pypi
+
+1. Bump the version (package.json/pyproject.toml) and update the CLI version constant if present.
+2. Commit + tag `vX.Y.Z` and push — the release workflow runs tests, publishes to Releasing, and creates the GitHub Release.
+uv run pytest -q|The release workflow (tag v*) builds, publishes to PyPI (PYPI_TOKEN repo secret), and creates the GitHub Release.
