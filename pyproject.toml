@@ -1,6 +1,6 @@
 [project]
 name = "solti-sdk"
-version = "0.2.0"
+version = "0.3.0"
 description = "Solti Platform Python SDK — schedule and run asynchronous workloads without managing infrastructure."
 readme = "README.md"
 license = "MIT"
