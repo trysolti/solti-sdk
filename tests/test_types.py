@@ -125,6 +125,26 @@ class TestCreateJobRequest:
         dump = request.model_dump(by_alias=True, exclude_none=True)
         assert dump["resources"]["gpu"] == {"model": "a100", "count": 4}
 
+    def test_storage_integer_and_quantity_string_pass_through(self) -> None:
+        # change 100: boot/root disk override — integer GiB or Gi/Mi quantity
+        # string; omitted ⇒ provider default (AWS 8 GiB, GCP 10 GB, Azure 30 GB).
+        shorthand = CreateJobRequest(
+            image="alpine:latest", resources={"storage": "102400Mi"}
+        )
+        dump = shorthand.model_dump(by_alias=True, exclude_none=True)
+        assert dump["resources"]["storage"] == "102400Mi"
+        typed = CreateJobRequest(
+            image="alpine:latest", resources=JobResources(storage=100)
+        )
+        assert typed.model_dump(exclude_none=True)["resources"] == {"storage": 100}
+        # Cronjob/workflow job templates reuse JobResources — storage survives
+        # JobDefinition validation (api parity, change 100 §3).
+        definition = JobDefinition.model_validate(
+            {"image": "alpine:latest", "resources": {"storage": "100Gi"}}
+        )
+        assert definition.resources is not None
+        assert definition.resources.storage == "100Gi"
+
     def test_cloud_accepts_provider_union(self) -> None:
         single = CreateJobRequest(image="i", cloud="aws")
         multi = CreateJobRequest(image="i", cloud=["aws", "gcp"])

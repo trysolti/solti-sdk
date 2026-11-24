@@ -47,7 +47,12 @@ job = client.jobs.create(
             "prefix": "checkpoints",     # optional
         }
     },
-    resources={"cpu": 8, "memory": "32Gi", "gpu": "24Gi"},  # gpu shorthand for {"vram": "24Gi"}
+    resources={
+        "cpu": 8,
+        "memory": "32Gi",
+        "gpu": "24Gi",        # shorthand for {"vram": "24Gi"}
+        "storage": "100Gi",   # boot disk override (GiB int or Gi/Mi string); default: AWS 8 / GCP 10 / Azure 30
+    },
     cloud=["aws", "gcp"],
     region="americas",
     max_retries=3,

@@ -85,6 +85,11 @@ class JobResources(BaseModel):
     memory: str | None = None
     #: VRAM shorthand (`"24Gi"`) or nested request (`{"vram": "24Gi"}`).
     gpu: str | GpuRequest | None = None
+    #: Boot/root disk size of the provisioned VM (change 100): integer GiB
+    #: (`100`) or quantity string (`"100Gi"` / `"102400Mi"`), bounds
+    #: 10–16384 GiB (integral — fractional quantities are rejected `422`).
+    #: Omitted ⇒ per-provider image default (AWS 8 GiB, GCP 10 GB, Azure 30 GB).
+    storage: int | str | None = None
 
 
 class CreateJobRequest(BaseModel):
